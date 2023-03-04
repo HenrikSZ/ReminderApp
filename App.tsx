@@ -9,6 +9,7 @@ import React, {PropsWithChildren, useState} from 'react';
 import {
   Keyboard,
   Pressable,
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import DatePicker from 'react-native-date-picker';
+
+const COMPLETED_COLOR = '#479106';
+const NOT_COMPLETED_COLOR = '#d92a1a';
 
 function useVW(): (size: number) => number {
   const width = useWindowDimensions().width;
@@ -29,30 +34,33 @@ function useVH(): (size: number) => number {
   return size => (size / 100) * height;
 }
 
-type ModalProps = {
+type BlurrModalProps = {
   isVisible: boolean;
   onFocusLost: () => void;
 };
 
-function Modal({
+function BlurrModal({
   isVisible,
   onFocusLost,
   children,
-}: ModalProps & PropsWithChildren): JSX.Element {
+}: BlurrModalProps & PropsWithChildren): JSX.Element {
   const vw = useVW();
   const vh = useVH();
 
   return (
-    // eslint-disable-next-line react-native/no-inline-styles
-    <View style={{display: isVisible ? 'flex' : 'none'}}>
+    <Modal visible={isVisible} transparent>
       <Pressable
         style={[styles.modalWrapper, {width: vw(100), height: vh(100)}]}
         onPress={onFocusLost}
       />
-      <View style={[styles.modal, {width: vw(80), left: vw(10)}]}>
+      <ScrollView
+        style={[
+          styles.modal,
+          {width: vw(90), maxHeight: vh(80), top: vh(10), left: vw(5)},
+        ]}>
         {children}
-      </View>
-    </View>
+      </ScrollView>
+    </Modal>
   );
 }
 
@@ -64,82 +72,161 @@ type Reminder = {
 
 type ReminderCreationViewProps = {
   onCreation: (r: Reminder) => void;
+  onFocusLost: () => void;
+  isVisible: boolean;
 };
 
 function ReminderCreationView({
   onCreation,
+  onFocusLost,
+  isVisible,
 }: ReminderCreationViewProps): JSX.Element {
-  const [editVisible, setEditVisible] = useState(false);
-  const [date, _setDate] = useState(new Date());
+  const [date, setDate] = useState(new Date());
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
   return (
-    <View>
-      <Modal isVisible={editVisible} onFocusLost={() => setEditVisible(false)}>
-        <Text style={styles.creationViewText}>Customize your reminder</Text>
-        <TextInput
-          placeholder="Title"
-          value={title}
-          onChangeText={setTitle}
-          style={styles.creationViewTextInput}
+    <BlurrModal isVisible={isVisible} onFocusLost={onFocusLost}>
+      <Text style={styles.creationViewText}>Create Reminder</Text>
+      <Text style={styles.creationViewInputDescription}>Title</Text>
+      <TextInput
+        placeholder="Title"
+        value={title}
+        onChangeText={setTitle}
+        style={styles.creationViewTextInput}
+      />
+      <Text style={styles.creationViewInputDescription}>Description</Text>
+      <TextInput
+        placeholder="Description"
+        value={description}
+        onChangeText={setDescription}
+        style={styles.creationViewTextInput}
+      />
+      <Text style={styles.creationViewInputDescription}>Date and Time</Text>
+      <View style={{alignItems: 'center'}}>
+        <DatePicker
+          textColor="black"
+          date={date}
+          onDateChange={setDate}
+          mode="datetime"
+          key={Date.now()}
         />
-        <TextInput
-          placeholder="Description"
-          value={description}
-          onChangeText={setDescription}
-          style={styles.creationViewTextInput}
-        />
-        <TouchableOpacity
-          onPress={() => {
-            Keyboard.dismiss();
-            onCreation({
-              title: title,
-              description: description,
-              date: date,
-            });
-            setTitle('');
-            setDescription('');
-            setEditVisible(false);
-          }}
-          style={styles.creationViewButton}>
-          <Text style={styles.creationViewButtonText}>Create</Text>
-        </TouchableOpacity>
-      </Modal>
+      </View>
       <TouchableOpacity
-        onPress={() => setEditVisible(true)}
+        onPress={() => {
+          Keyboard.dismiss();
+          onCreation({
+            title: title,
+            description: description,
+            date: date,
+          });
+          setTitle('');
+          setDescription('');
+          onFocusLost();
+        }}
         style={styles.creationViewButton}>
-        <Text style={styles.creationViewButtonText}>Create a new reminder</Text>
+        <Text style={styles.creationViewButtonText}>Create</Text>
       </TouchableOpacity>
-    </View>
+    </BlurrModal>
   );
 }
 
 type ReminderViewProps = {
   reminder: Reminder;
+  onCompletion?: () => void;
 };
 
-function ReminderView({reminder}: ReminderViewProps): JSX.Element {
+function ReminderView({
+  reminder,
+  onCompletion,
+}: ReminderViewProps): JSX.Element {
   return (
-    <View style={styles.reminderView}>
-      <Text style={styles.reminderViewTitle}>{reminder.title}</Text>
-      <Text style={styles.reminderViewDescription}>{reminder.description}</Text>
+    <View
+      style={[
+        styles.reminderView,
+        {
+          backgroundColor: onCompletion ? NOT_COMPLETED_COLOR : COMPLETED_COLOR,
+        },
+      ]}>
+      <View style={styles.container}>
+        <View style={styles.reminderViewHeader}>
+          <View style={styles.reminderViewHeaderLeft}>
+            <Text style={styles.reminderViewTitle}>{reminder.title}</Text>
+            <Text style={styles.reminderViewDate}>
+              {reminder.date.toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.reminderViewHeaderRight}>
+            <TouchableOpacity
+              onPress={onCompletion}
+              style={[
+                styles.creationViewButton,
+                // eslint-disable-next-line react-native/no-inline-styles
+                {display: onCompletion ? 'flex' : 'none'},
+              ]}>
+              <Text style={styles.creationViewButtonText}>Complete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.reminderViewDescription}>
+          {reminder.description}
+        </Text>
+      </View>
     </View>
   );
 }
 
 function App(): JSX.Element {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [showEditView, setShowEditView] = useState(false);
+  const [pendingReminders, setPendingReminders] = useState<Reminder[]>([]);
+  const [completedReminders, setCompletedReminders] = useState<Reminder[]>([]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.pageContainer}>
       <ReminderCreationView
-        onCreation={(reminder: Reminder) =>
-          setReminders([...reminders, reminder])
-        }
+        onCreation={(reminder: Reminder) => {
+          const newReminders = [...pendingReminders, reminder];
+          newReminders.sort(
+            (a, b) => b.date.getMilliseconds() - a.date.getMilliseconds(),
+          );
+          setPendingReminders(newReminders);
+        }}
+        onFocusLost={() => setShowEditView(false)}
+        isVisible={showEditView}
       />
+      <Text style={styles.reminderPageHeader}>Reminder App</Text>
+      <TouchableOpacity
+        onPress={() => setShowEditView(true)}
+        style={styles.creationViewButton}>
+        <Text style={styles.creationViewButtonText}>Create a New Reminder</Text>
+      </TouchableOpacity>
       <ScrollView style={styles.reminderListView}>
-        {reminders.map((r, i) => (
+        <Text style={styles.reminderListText}>
+          {pendingReminders.length === 0 ? 'None Pending' : 'Pending'}
+        </Text>
+        {pendingReminders.map((r, i) => (
+          <ReminderView
+            reminder={r}
+            key={i}
+            onCompletion={() => {
+              const newPendingReminders = [...pendingReminders];
+              newPendingReminders.splice(i);
+              setPendingReminders(newPendingReminders);
+
+              const newCompletedReminders = [...completedReminders, r];
+              newCompletedReminders.sort(
+                (a, b) => b.date.getMilliseconds() - a.date.getMilliseconds(),
+              );
+
+              setCompletedReminders(newCompletedReminders);
+            }}
+          />
+        ))}
+        <View style={styles.reminderListSeparator} />
+        <Text style={styles.reminderListText}>
+          {completedReminders.length === 0 ? 'None Completed' : 'Completed'}
+        </Text>
+        {completedReminders.map((r, i) => (
           <ReminderView reminder={r} key={i} />
         ))}
       </ScrollView>
@@ -150,9 +237,19 @@ function App(): JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  pageContainer: {
+    flex: 1,
     backgroundColor: 'white',
   },
+  reminderPageHeader: {
+    color: 'black',
+    fontSize: 25,
+    fontWeight: 'bold',
+    padding: 10,
+  },
   modalWrapper: {
+    position: 'absolute',
     opacity: 0.4,
     backgroundColor: 'black',
   },
@@ -161,7 +258,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: 'white',
     borderRadius: 5,
-    top: '20%',
+  },
+  modalContent: {
+    alignItems: 'center',
   },
   creationViewText: {
     color: 'black',
@@ -179,20 +278,42 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     margin: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   creationViewButtonText: {
     color: 'white',
   },
+  creationViewInputDescription: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: 'black',
+    marginTop: 2,
+  },
   reminderView: {
-    backgroundColor: '#479106',
-    padding: 5,
+    padding: 10,
     borderRadius: 5,
     margin: 5,
+    flexDirection: 'row',
+  },
+  reminderViewHeader: {
+    flexDirection: 'row',
+  },
+  reminderViewHeaderLeft: {
+    flex: 7,
+  },
+  reminderViewHeaderRight: {
+    flex: 3,
   },
   reminderViewTitle: {
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  reminderViewDate: {
+    color: 'white',
+    fontSize: 10,
+    fontStyle: 'italic',
   },
   reminderViewDescription: {
     color: 'white',
@@ -200,6 +321,17 @@ const styles = StyleSheet.create({
   },
   reminderListView: {
     padding: 10,
+  },
+  reminderListSeparator: {
+    backgroundColor: 'black',
+    height: 3,
+    width: '100%',
+  },
+  reminderListText: {
+    color: 'black',
+    fontSize: 20,
+    fontStyle: 'italic',
+    padding: 5,
   },
 });
 

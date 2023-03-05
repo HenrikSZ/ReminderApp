@@ -153,7 +153,7 @@ function ReminderView({
           <View style={styles.reminderViewHeaderLeft}>
             <Text style={styles.reminderViewTitle}>{reminder.title}</Text>
             <Text style={styles.reminderViewDate}>
-              {reminder.date.toLocaleDateString()}
+              {`${reminder.date.toLocaleDateString()} - ${reminder.date.toLocaleTimeString()}`}
             </Text>
           </View>
           <View style={styles.reminderViewHeaderRight}>
@@ -210,12 +210,12 @@ function App(): JSX.Element {
             key={i}
             onCompletion={() => {
               const newPendingReminders = [...pendingReminders];
-              newPendingReminders.splice(i);
+              newPendingReminders.splice(i, 1);
               setPendingReminders(newPendingReminders);
 
               const newCompletedReminders = [...completedReminders, r];
               newCompletedReminders.sort(
-                (a, b) => b.date.getMilliseconds() - a.date.getMilliseconds(),
+                (a, b) => a.date.getMilliseconds() - b.date.getMilliseconds(),
               );
 
               setCompletedReminders(newCompletedReminders);

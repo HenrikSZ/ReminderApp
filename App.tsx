@@ -1,8 +1,7 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
+ * Sample Reminder App in React Native.
  *
- * @format
+ * Author: Henrik Zimmermann
  */
 
 import React, {PropsWithChildren, useState} from 'react';
@@ -24,21 +23,44 @@ import DatePicker from 'react-native-date-picker';
 const COMPLETED_COLOR = '#479106';
 const NOT_COMPLETED_COLOR = '#d92a1a';
 
+/**
+ * Sizing hook to make responsive design easier. The number
+ * passed will be assessed as percentage of the viewport width (vw).
+ *
+ * @returns a function that converts a width percentage into the
+ * actual dimension.
+ */
 function useVW(): (size: number) => number {
   const width = useWindowDimensions().width;
   return size => (size / 100) * width;
 }
 
+/**
+ * Sizing hook to make responsive design easier. The number
+ * passed will be assessed as percentage of the viewport height (vh).
+ *
+ * @returns a function that converts a height percentage into the
+ * actual dimension.
+ */
 function useVH(): (size: number) => number {
   const height = useWindowDimensions().height;
   return size => (size / 100) * height;
 }
 
+/**
+ * Props for the BlurrModal
+ * isVisible determines whether this modal should be visible or hidden.
+ * onFocusLost is called when the user navigates away from this modal.
+ */
 type BlurrModalProps = {
   isVisible: boolean;
   onFocusLost: () => void;
 };
 
+/**
+ * A modal that is based on the react native default Modal. Blurs the background
+ * and exits when the user pressed outside of the Modal window.
+ */
 function BlurrModal({
   isVisible,
   onFocusLost,
@@ -58,24 +80,36 @@ function BlurrModal({
           styles.modal,
           {width: vw(90), maxHeight: vh(80), top: vh(10), left: vw(5)},
         ]}>
-        {children}
+        <View style={styles.modalContent}>{children}</View>
       </ScrollView>
     </Modal>
   );
 }
 
+/**
+ * The Reminder object type.
+ */
 type Reminder = {
   date: Date;
   title: string;
   description: string;
 };
 
+/**
+ * The Props for the ReminderCreationView.
+ * onCreation is called when a reminder is created.
+ * onFocusLost is called when the modal is navigated away from.
+ * isVisible determines whether this modal should be visible or hidden.
+ */
 type ReminderCreationViewProps = {
   onCreation: (r: Reminder) => void;
   onFocusLost: () => void;
   isVisible: boolean;
 };
 
+/**
+ * A Modal that facilitates the creation of a reminder.
+ */
 function ReminderCreationView({
   onCreation,
   onFocusLost,
@@ -91,14 +125,12 @@ function ReminderCreationView({
       <Text style={styles.creationViewInputDescription}>Title</Text>
       <TextInput
         placeholder="Title"
-        value={title}
         onChangeText={setTitle}
         style={styles.creationViewTextInput}
       />
       <Text style={styles.creationViewInputDescription}>Description</Text>
       <TextInput
         placeholder="Description"
-        value={description}
         onChangeText={setDescription}
         style={styles.creationViewTextInput}
       />
@@ -131,11 +163,21 @@ function ReminderCreationView({
   );
 }
 
+/**
+ * The props for the ReminderView
+ * reminder is the reminder that should be displayed.
+ * onCompletion is called when this reminder is marked as completed.
+ * If onCompletion is undefined or null, the reminder is assumed to be
+ * completed.
+ */
 type ReminderViewProps = {
   reminder: Reminder;
   onCompletion?: () => void;
 };
 
+/**
+ * A view that displays a reminder and facilitates to mark it as completed.
+ */
 function ReminderView({
   reminder,
   onCompletion,
@@ -176,6 +218,9 @@ function ReminderView({
   );
 }
 
+/**
+ * The main component of the App.
+ */
 function App(): JSX.Element {
   const [showEditView, setShowEditView] = useState(false);
   const [pendingReminders, setPendingReminders] = useState<Reminder[]>([]);
@@ -186,9 +231,7 @@ function App(): JSX.Element {
       <ReminderCreationView
         onCreation={(reminder: Reminder) => {
           const newReminders = [...pendingReminders, reminder];
-          newReminders.sort(
-            (a, b) => b.date.getMilliseconds() - a.date.getMilliseconds(),
-          );
+          newReminders.sort((a, b) => a.date.getTime() - b.date.getTime());
           setPendingReminders(newReminders);
         }}
         onFocusLost={() => setShowEditView(false)}
@@ -200,40 +243,40 @@ function App(): JSX.Element {
         style={styles.creationViewButton}>
         <Text style={styles.creationViewButtonText}>Create a New Reminder</Text>
       </TouchableOpacity>
-      <ScrollView style={styles.reminderListView}>
-        <Text style={styles.reminderListText}>
-          {pendingReminders.length === 0 ? 'None Pending' : 'Pending'}
-        </Text>
-        {pendingReminders.map((r, i) => (
-          <ReminderView
-            reminder={r}
-            key={i}
-            onCompletion={() => {
-              const newPendingReminders = [...pendingReminders];
-              newPendingReminders.splice(i, 1);
-              setPendingReminders(newPendingReminders);
+      <ScrollView>
+        <View style={styles.reminderListView}>
+          <Text style={styles.reminderListText}>
+            {pendingReminders.length === 0 ? 'None Pending' : 'Pending'}
+          </Text>
+          {pendingReminders.map((r, i) => (
+            <ReminderView
+              reminder={r}
+              key={i}
+              onCompletion={() => {
+                const newPendingReminders = [...pendingReminders];
+                newPendingReminders.splice(i, 1);
+                setPendingReminders(newPendingReminders);
 
-              const newCompletedReminders = [...completedReminders, r];
-              newCompletedReminders.sort(
-                (a, b) => a.date.getMilliseconds() - b.date.getMilliseconds(),
-              );
-
-              setCompletedReminders(newCompletedReminders);
-            }}
-          />
-        ))}
-        <View style={styles.reminderListSeparator} />
-        <Text style={styles.reminderListText}>
-          {completedReminders.length === 0 ? 'None Completed' : 'Completed'}
-        </Text>
-        {completedReminders.map((r, i) => (
-          <ReminderView reminder={r} key={i} />
-        ))}
+                setCompletedReminders([r, ...completedReminders]);
+              }}
+            />
+          ))}
+          <View style={styles.reminderListSeparator} />
+          <Text style={styles.reminderListText}>
+            {completedReminders.length === 0 ? 'None Completed' : 'Completed'}
+          </Text>
+          {completedReminders.map((r, i) => (
+            <ReminderView reminder={r} key={i} />
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+/**
+ * All styles needed for the app.
+ */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -254,13 +297,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
   },
   modal: {
-    padding: 10,
     position: 'absolute',
     backgroundColor: 'white',
     borderRadius: 5,
   },
   modalContent: {
-    alignItems: 'center',
+    padding: 10,
   },
   creationViewText: {
     color: 'black',
